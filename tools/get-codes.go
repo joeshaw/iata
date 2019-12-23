@@ -36,12 +36,20 @@ func main() {
 			log.Fatal(err)
 		}
 
-		iata, name, city, country := rec[10], rec[2], rec[8], rec[6]
+		name, country, region, city, iata := rec[2], rec[5], rec[6], rec[7], rec[9]
 
 		// Skip the header line and skip airports with no (or
 		// garbage) IATA codes
 		if iata == "iata_code" || iata == "" || iata == "0" || iata[0] == '-' {
 			continue
+		}
+
+		switch country {
+		case "US", "CA":
+			if len(region) > 3 {
+				prov := region[3:]
+				city += ", " + prov
+			}
 		}
 
 		entries = append(entries, []string{iata, name, city, country})
