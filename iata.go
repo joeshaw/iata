@@ -7,7 +7,18 @@ import (
 	"strings"
 )
 
-//go:generate bash -c "go run tools/get-codes.go tools/airport-codes.csv codes.go && goimports -w codes.go"
+//go:generate bash -c "go run tools/get-codes.go tools/airports.csv codes.go && goimports -w codes.go"
+
+func (a airport) String() string {
+	return fmt.Sprintf(
+		"%s (%s) - %s (%s, %s)",
+		a.iata,
+		a.icao,
+		a.name,
+		a.city,
+		a.country,
+	)
+}
 
 func main() {
 	for _, code := range os.Args[1:] {
@@ -17,8 +28,21 @@ func main() {
 			return airports[i].iata >= code
 		})
 
+		var match airport
+
 		if i < len(airports) && airports[i].iata == code {
-			fmt.Printf("%s - %s (%s, %s)\n", code, airports[i].name, airports[i].city, airports[i].country)
+			match = airports[i]
+		} else {
+			for _, a := range airports {
+				if a.icao == code {
+					match = a
+					break
+				}
+			}
+		}
+
+		if match.iata != "" {
+			fmt.Println(match)
 		} else {
 			fmt.Printf("%s - not found\n", code)
 		}

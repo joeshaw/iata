@@ -19,8 +19,8 @@ Don't look at the code.  It's gross.
 
 ## Airport data
 
-Airport data comes from https://github.com/datasets/airport-codes.
-The airport-codes.csv file is copied into the `tools` subdirectory.
+Airport data comes from https://ourairports.com/data/.
+The airports.csv file is copied into the `tools` subdirectory.
 Running `go generate .` from the toplevel directory will regenerate
 the Go file containing the airport data from it.
 
