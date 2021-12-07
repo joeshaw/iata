@@ -6,7 +6,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"sort"
 	"strings"
 )
 
@@ -25,8 +24,12 @@ func main() {
 
 	r := csv.NewReader(in)
 
-	var entries [][]interface{}
+	var (
+		iatas []string
+		seen  = make(map[string]struct{})
+	)
 
+	fmt.Fprint(out, header)
 	for {
 		rec, err := r.Read()
 		if err == io.EOF {
@@ -37,11 +40,15 @@ func main() {
 			log.Fatal(err)
 		}
 
-		icao, name, country, region, city, iata := rec[1], rec[3], rec[8], rec[9], rec[10], rec[13]
+		icao, typ, name, country, region, city, iata := rec[1], rec[2], rec[3], rec[8], rec[9], rec[10], rec[13]
 
-		// Skip the header line and skip airports with no (or
-		// garbage) IATA codes
-		if iata == "iata_code" || iata == "" || iata == "0" || iata[0] == '-' {
+		// Skip the header line
+		if iata == "iata_code" {
+			continue
+		}
+
+		// Skip closed airports
+		if typ == "closed" {
 			continue
 		}
 
@@ -53,20 +60,28 @@ func main() {
 			}
 		}
 
-		entries = append(entries, []interface{}{iata, icao, escapeBackticks(name), escapeBackticks(city), country})
-	}
-
-	sort.Slice(entries, func(i, j int) bool {
-		return entries[i][0].(string) < entries[j][0].(string)
-	})
-
-	fmt.Fprint(out, header)
-	for _, entry := range entries {
 		fmt.Fprintf(
 			out,
-			"{ iata: `%s`, icao: `%s`, name: `%s`, city: `%s`, country: `%s`},\n",
-			entry...,
+			"`%s`: { iata: `%s`, icao: `%s`, name: `%s`, city: `%s`, country: `%s` },\n",
+			icao,
+			iata, icao, escapeBackticks(name), escapeBackticks(city), country,
 		)
+
+		if iata != "" && iata != icao {
+			if _, ok := seen[iata]; !ok {
+				iatas = append(iatas, fmt.Sprintf(
+					"`%s`: { iata: `%s`, icao: `%s`, name: `%s`, city: `%s`, country: `%s` },\n",
+					iata,
+					iata, icao, escapeBackticks(name), escapeBackticks(city), country,
+				))
+				seen[iata] = struct{}{}
+			}
+		}
+	}
+
+	fmt.Fprint(out, midpoint)
+	for _, entry := range iatas {
+		fmt.Fprintf(out, entry)
 	}
 	fmt.Fprint(out, footer)
 
@@ -86,7 +101,12 @@ type airport struct {
 	iata, icao, name, city, country string
 }
 
-var airports = []airport {
+var icaos = map[string]airport {
+`
+
+const midpoint = `}
+
+var iatas = map[string]airport {
 `
 
 const footer = `}`

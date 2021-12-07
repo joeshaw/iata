@@ -1,5 +1,5 @@
 This is a dumb CLI tool which prints out airport info given an IATA
-code.
+or ICAO code.
 
 Don't look at the code.  It's gross.
 
@@ -9,13 +9,14 @@ Don't look at the code.  It's gross.
 
 ## Usage
 
-    $ iata LAX FRA sjc CMH BOS BUT
-    LAX - Los Angeles International Airport (Los Angeles, US)
-    FRA - Frankfurt am Main International Airport (Frankfurt-am-Main, DE)
-    SJC - Norman Y. Mineta San Jose International Airport (San Jose, US)
-    CMH - Port Columbus International Airport (Columbus, US)
-    BOS - General Edward Lawrence Logan International Airport (Boston, US)
-    BUT - not found
+    $ iata LAX KIAD FRA sjc CMH BOS BUTT
+    LAX (KLAX) - Los Angeles International Airport (Los Angeles, CA, US)
+    IAD (KIAD) - Washington Dulles International Airport (Washington, DC, VA, US)
+    FRA (EDDF) - Frankfurt am Main Airport (Frankfurt am Main, DE)
+    SJC (KSJC) - Norman Y. Mineta San Jose International Airport (San Jose, CA, US)
+    CMH (KCMH) - John Glenn Columbus International Airport (Columbus, OH, US)
+    BOS (KBOS) - General Edward Lawrence Logan International Airport (Boston, MA, US)
+    BUTT - not found
 
 ## Airport data
 
