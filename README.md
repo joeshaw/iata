@@ -5,7 +5,7 @@ Don't look at the code.  It's gross.
 
 ## Install
 
-    go get github.com/joeshaw/iata
+    go install github.com/joeshaw/iata@latest
 
 ## Usage
 
