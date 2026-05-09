@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-//go:generate bash -c "go run tools/get-codes.go tools/airports.csv codes.go && goimports -w codes.go"
+//go:generate bash -c "go run tools/get-codes.go -airports tools/airports.csv -optd tools/optd_por_public.csv -o codes.go && goimports -w codes.go"
 
 func (a airport) String() string {
 	var code string

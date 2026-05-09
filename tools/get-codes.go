@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/csv"
+	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -10,19 +11,25 @@ import (
 )
 
 func main() {
-	in, err := os.Open(os.Args[1])
-	if err != nil {
-		log.Fatal(err)
+	airportsPath := flag.String("airports", "", "path to OurAirports airport-codes.csv (required)")
+	optdPath := flag.String("optd", "", "path to OpenTravelData optd_por_public.csv (optional)")
+	outPath := flag.String("o", "", "path to write generated Go file (required)")
+	flag.Usage = func() {
+		fmt.Fprintf(flag.CommandLine.Output(), "usage: %s -airports <path> -o <path> [-optd <path>]\n", os.Args[0])
+		flag.PrintDefaults()
 	}
-	defer in.Close()
+	flag.Parse()
 
-	out, err := os.Create(os.Args[2])
+	if *airportsPath == "" || *outPath == "" {
+		flag.Usage()
+		os.Exit(2)
+	}
+
+	out, err := os.Create(*outPath)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer out.Close()
-
-	r := csv.NewReader(in)
 
 	var (
 		iatas []string
@@ -30,12 +37,39 @@ func main() {
 	)
 
 	fmt.Fprint(out, header)
+	iatas = processAirports(out, *airportsPath, iatas, seen)
+
+	if *optdPath != "" {
+		iatas = processOPTD(*optdPath, iatas, seen)
+	}
+
+	fmt.Fprint(out, midpoint)
+	for _, entry := range iatas {
+		fmt.Fprint(out, entry)
+	}
+	fmt.Fprint(out, footer)
+
+	if err := out.Close(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+// processAirports reads the OurAirports CSV and writes ICAO-keyed entries
+// directly to out. IATA-keyed entries are accumulated and returned for
+// later writing to the iatas map.
+func processAirports(out io.Writer, path string, iatas []string, seen map[string]struct{}) []string {
+	in, err := os.Open(path)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer in.Close()
+
+	r := csv.NewReader(in)
 	for {
 		rec, err := r.Read()
 		if err == io.EOF {
 			break
 		}
-
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -57,13 +91,7 @@ func main() {
 			continue
 		}
 
-		switch country {
-		case "US", "CA":
-			if len(region) > 3 {
-				prov := region[3:]
-				city += ", " + prov
-			}
-		}
+		city = withRegionSuffix(city, country, region)
 
 		if icao != "" {
 			fmt.Fprintf(
@@ -85,16 +113,88 @@ func main() {
 			}
 		}
 	}
+	return iatas
+}
 
-	fmt.Fprint(out, midpoint)
-	for _, entry := range iatas {
-		fmt.Fprintf(out, entry)
-	}
-	fmt.Fprint(out, footer)
-
-	if out.Close(); err != nil {
+// processOPTD reads the OpenTravelData POR file and appends entries for
+// IATA codes assigned to cities, rail stations, and bus stations. Codes
+// already present in seen (typically airports from OurAirports) are
+// skipped, so the airport entry wins on collision.
+func processOPTD(path string, iatas []string, seen map[string]struct{}) []string {
+	in, err := os.Open(path)
+	if err != nil {
 		log.Fatal(err)
 	}
+	defer in.Close()
+
+	r := csv.NewReader(in)
+	r.Comma = '^'
+	r.LazyQuotes = true
+
+	for {
+		rec, err := r.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		iata, envelopeID, name, dateUntil := rec[0], rec[5], rec[6], rec[14]
+		country, region, cityList, locType := rec[16], rec[20], rec[37], rec[41]
+
+		// Skip the header line
+		if iata == "iata_code" {
+			continue
+		}
+
+		// Skip empty IATA codes and deprecated entries
+		if iata == "" || envelopeID != "" || dateUntil != "" {
+			continue
+		}
+
+		// Skip airport-only and heliport-only rows. OurAirports is the
+		// authoritative source for those — OPTD has known-stale data
+		// here including closed airports. Multi-type rows (e.g. "CA",
+		// city+airport) still pass since they carry a non-airport
+		// component.
+		if !strings.ContainsAny(locType, "CRBPO") {
+			continue
+		}
+		if _, ok := seen[iata]; ok {
+			continue
+		}
+
+		// city_name_list is "="-separated; take the first.
+		city := cityList
+		if i := strings.IndexByte(city, '='); i >= 0 {
+			city = city[:i]
+		}
+
+		city = withRegionSuffix(city, country, region)
+
+		iatas = append(iatas, fmt.Sprintf(
+			"`%s`: { iata: `%s`, icao: ``, name: `%s`, city: `%s`, country: `%s` },\n",
+			iata,
+			iata, escapeBackticks(name), escapeBackticks(city), country,
+		))
+		seen[iata] = struct{}{}
+	}
+	return iatas
+}
+
+// withRegionSuffix appends ", <state>" to city for US/CA entries.
+// Accepts both OurAirports' "US-CA" iso_region format and OPTD's bare
+// "CA" adm1_code format.
+func withRegionSuffix(city, country, region string) string {
+	switch country {
+	case "US", "CA":
+		region = strings.TrimPrefix(region, country+"-")
+		if region != "" {
+			city += ", " + region
+		}
+	}
+	return city
 }
 
 func escapeBackticks(s string) string {
