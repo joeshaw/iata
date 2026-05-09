@@ -10,9 +10,12 @@ import (
 
 func (a airport) String() string {
 	var code string
-	if a.iata == "" {
+	switch {
+	case a.iata == "":
 		code = a.icao
-	} else {
+	case a.icao == "":
+		code = a.iata
+	default:
 		code = fmt.Sprintf("%s (%s)", a.iata, a.icao)
 	}
 

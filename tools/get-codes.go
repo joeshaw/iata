@@ -40,7 +40,7 @@ func main() {
 			log.Fatal(err)
 		}
 
-		icao, typ, name, country, region, city, iata := rec[0], rec[1], rec[2], rec[5], rec[6], rec[7], rec[9]
+		typ, name, country, region, city, icao, iata := rec[1], rec[2], rec[5], rec[6], rec[7], rec[8], rec[9]
 
 		// Skip the header line
 		if iata == "iata_code" {
@@ -52,6 +52,11 @@ func main() {
 			continue
 		}
 
+		// Skip entries with neither an IATA nor an ICAO code
+		if iata == "" && icao == "" {
+			continue
+		}
+
 		switch country {
 		case "US", "CA":
 			if len(region) > 3 {
@@ -60,12 +65,14 @@ func main() {
 			}
 		}
 
-		fmt.Fprintf(
-			out,
-			"`%s`: { iata: `%s`, icao: `%s`, name: `%s`, city: `%s`, country: `%s` },\n",
-			icao,
-			iata, icao, escapeBackticks(name), escapeBackticks(city), country,
-		)
+		if icao != "" {
+			fmt.Fprintf(
+				out,
+				"`%s`: { iata: `%s`, icao: `%s`, name: `%s`, city: `%s`, country: `%s` },\n",
+				icao,
+				iata, icao, escapeBackticks(name), escapeBackticks(city), country,
+			)
+		}
 
 		if iata != "" && iata != icao {
 			if _, ok := seen[iata]; !ok {
